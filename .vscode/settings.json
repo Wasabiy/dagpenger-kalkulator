@@ -1,0 +1,9 @@
+{
+  "java.import.gradle.enabled": true,
+  "java.import.gradle.wrapper.enabled": true,
+  "java.import.gradle.user.home": ".gradle-vscode",
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.import.gradle.java.home": "/usr/lib/jvm/java-21-openjdk",
+  "jdk.jdkhome": "/usr/lib/jvm/java-21-openjdk",
+  "jdk.project.jdkhome": "/usr/lib/jvm/java-21-openjdk"
+}

@@ -1,9 +1,11 @@
 .gradle
+.gradle-vscode
 **/build/
 !src/**/build/
 
 # Ignore Gradle GUI config
 gradle-app.setting
+
 
 # Avoid ignoring Gradle wrapper jar file (.jar files are usually ignored)
 !gradle-wrapper.jar
@@ -23,3 +25,7 @@ gradle-app.setting
 .idea
 
 .DS_Store
+
+# lib test
+lib/junit-platform-console-standalone-1.13.0-M3.jar
+lib

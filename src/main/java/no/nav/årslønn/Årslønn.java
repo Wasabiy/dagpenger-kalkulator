@@ -13,6 +13,9 @@ public class Årslønn {
     private final double årslønn;
 
     public Årslønn(int åretForLønn, double årslønn) {
+        if(årslønn < 0) {
+            throw new IllegalArgumentException("Årslønn kan ikke være negativ");
+        }
         this.åretForLønn = åretForLønn;
         this.årslønn = årslønn;
     }

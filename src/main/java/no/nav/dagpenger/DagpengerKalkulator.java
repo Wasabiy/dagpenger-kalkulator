@@ -1,12 +1,12 @@
 package no.nav.dagpenger;
 
-import no.nav.grunnbeløp.GrunnbeløpVerktøy;
-import no.nav.årslønn.Årslønn;
-
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+
+import no.nav.grunnbeløp.GrunnbeløpVerktøy;
+import no.nav.saksbehandler.Sak;
+import no.nav.saksbehandler.Vedtak;
+import no.nav.årslønn.Årslønn;
 
 /**
  * Kalkulator for å beregne hvor mye dagpenger en person har rett på i Norge basert på dagens grunnbeløp (1G).
@@ -24,13 +24,23 @@ import java.util.List;
  */
 public class DagpengerKalkulator {
 
-    public final GrunnbeløpVerktøy grunnbeløpVerktøy;
+/*
+DEL 2 TANKER:
 
-    public final List<Årslønn> årslønner;
+Hvis saksbehandlere skal kun håndtere saker innen deres spesialisering, burde det være en klassifisering resultat, eller at de sendes til saksbehandlere automatisk etter at harRettPåDagpenger funksjonen aktiveres? Trenger muligens en type workflow som skal la deg gjøre dette da. Kanskje en ide kan være å lage enum + en "Saker + Kalkulator klasse" som automatisk kjører gjennom alle sakene og sender det til riktig saksbehandler basert på resultatet av harRettPåDagpenger funksjonen. Saksbehandler bør også kunne få hele saken og verifisere selv hvis de ønsker for å dobbeltsjekke + skrive ned avslaget/innvilgelsen.
+*/
+
+    private static final int arbeidsdagerIÅret = 260;
+
+    private final GrunnbeløpVerktøy grunnbeløpVerktøy; 
+
+    //private final List<Årslønn> årslønner; //Gjøre i det minste årslønnerregisteret til en private variabel. Dumt om andre klasser kan endre kalkulatorens årslønner uten å gå gjennom kalkulatoren sine metoder.
+
+    //Jeg er usikker på om jeg burde beholde årslønner som et felt i det som burde være en statisk klasse (kakulator bør kunne brukes flere ganger av samme saksbehandler, tross alt metodene er der bare for å verifisere årslønn og dagsats, alle metoder returnerrer )
 
     public DagpengerKalkulator() {
         this.grunnbeløpVerktøy = new GrunnbeløpVerktøy();
-        this.årslønner = new ArrayList<>();
+        //this.årslønner = new ArrayList<Årslønn>();
     }
 
     /**
@@ -39,61 +49,85 @@ public class DagpengerKalkulator {
      * er det samme som å ikke ha rett på dagpenger.
      * @return dagsatsen en person har rett på.
      */
-    public double kalkulerDagsats() {
+    public double kalkulerDagsats(Sak sak) {
+        List<Årslønn> årslønner = sak.getÅrslønner();
         double dagsats = 0;
-
-        int arbeidsdagerIÅret = 260;
-        if (harRettigheterTilDagpenger() == true) {
-            if (velgBeregningsMetode() == "SISTE_ÅRSLØNN") {
-                dagsats = Math.ceil(hentÅrslønnVedIndeks(0).hentÅrslønn() / arbeidsdagerIÅret);
-            } else if (velgBeregningsMetode() == "GJENNOMSNITTET_AV_TRE_ÅR") {
-                dagsats = Math.ceil((summerNyligeÅrslønner(3) / 3) / arbeidsdagerIÅret);
-            } else if (velgBeregningsMetode() == "MAKS_ÅRLIG_DAGPENGERGRUNNLAG") {
-                dagsats = Math.ceil(grunnbeløpVerktøy.hentMaksÅrligDagpengegrunnlag() / arbeidsdagerIÅret);
+        //Tror det er greit å beholde variabelen for å debugge / logge underveis hva som skjer med variabelen med kalkulering 
+       
+        //Kan bruke switch case siden det er bruk av else if setninger
+        //Dette betyr at koden ikke trenger å sjekke ytterligere betingelser når en betingelse er møtt.
+        if(!harRettigheterTilDagpenger(sak)) {
+            sak.setVedtak(Vedtak.AVSLAG);
+            return dagsats;
+        }else{
+            BeregningsMetode beregningsMetode = velgBeregningsMetode(årslønner);
+            sorterÅrslønnerBasertPåNyesteÅrslønn(årslønner);
+            switch (beregningsMetode) {
+                case SISTE_ÅRSLØNN:
+                     sak.setVedtak(Vedtak.INNVILGET);
+                     dagsats = Math.ceil(hentÅrslønnVedIndeks(årslønner, 0).hentÅrslønn() / arbeidsdagerIÅret);
+                     return dagsats;
+                case GJENNOMSNITTET_AV_TRE_ÅR:
+                    sak.setVedtak(Vedtak.INNVILGET);
+                    dagsats = Math.ceil((summerNyligeÅrslønner(3, årslønner) / 3) / arbeidsdagerIÅret);
+                    return dagsats;
+                case MAKS_ÅRLIG_DAGPENGERGRUNNLAG:
+                    sak.setVedtak(Vedtak.INNVILGET_MED_MAKSSATS);
+                    dagsats = Math.ceil(grunnbeløpVerktøy.hentMaksÅrligDagpengegrunnlag() / arbeidsdagerIÅret);
+                    return dagsats;
+                default:
+                    throw new AssertionError(); //
             }
         }
-
-        return dagsats;
     }
 
     /**
      * Sjekker om en person har rettighet til dagpenger eller ikke.
      * @return om personen har rett på dagpenger.
      */
-    public boolean harRettigheterTilDagpenger() {
-        boolean harRettigheter = false;
-
-        if (summerNyligeÅrslønner(3) >= grunnbeløpVerktøy.hentTotaltGrunnbeløpForGittAntallÅr(3)) {
-            harRettigheter = true;
-        } else if (hentÅrslønnVedIndeks(0).hentÅrslønn() >= grunnbeløpVerktøy.hentMinimumÅrslønnForRettPåDagpenger()) {
-            harRettigheter = true;
+    public boolean harRettigheterTilDagpenger(Sak sak) {
+        List<Årslønn> årslønner = sak.getÅrslønner();
+        // Det er unødvendig å definere en boolean variabel heller returner direkte verdien
+        // if else if statement sier til oss at vi ikke må sjekke for begge og kan gå videre hvis en inntreffer
+        sorterÅrslønnerBasertPåNyesteÅrslønn(årslønner);
+        if (summerNyligeÅrslønner(3, årslønner) >= grunnbeløpVerktøy.hentTotaltGrunnbeløpForGittAntallÅr(3)) {
+            return true;
+        } else if (hentÅrslønnVedIndeks(årslønner, 0).hentÅrslønn() >= grunnbeløpVerktøy.hentMinimumÅrslønnForRettPåDagpenger()) {
+           return true;
         }
-
-        return harRettigheter;
+        return false;
     }
 
     /**
      * Velger hva som skal være beregnings metode for dagsats ut ifra en person sine årslønner.
      * @return beregnings metode for dagsats.
      */
-    public String velgBeregningsMetode() {
-        String beregningsMetode;
+    public BeregningsMetode velgBeregningsMetode(List<Årslønn> årslønner) {
+        //Trenger ikke å kalle på metoden flere ganger, kan heller lagre den i en variabel og bruke den senere gaga gogo
+        BeregningsMetode beregningsMetode; 
+        sorterÅrslønnerBasertPåNyesteÅrslønn(årslønner);
+        double sisteÅrslønn = hentÅrslønnVedIndeks(årslønner, 0).hentÅrslønn();
+        if (sisteÅrslønn > (summerNyligeÅrslønner(3, årslønner) / 3)) {
 
-        if (hentÅrslønnVedIndeks(0).hentÅrslønn() > (summerNyligeÅrslønner(3) / 3)) {
-           beregningsMetode = "SISTE_ÅRSLØNN";
-           if (hentÅrslønnVedIndeks(0).hentÅrslønn() > grunnbeløpVerktøy.hentMaksÅrligDagpengegrunnlag()) {
-               beregningsMetode = "MAKS_ÅRLIG_DAGPENGERGRUNNLAG";
+           beregningsMetode = BeregningsMetode.SISTE_ÅRSLØNN;
+           
+           if (sisteÅrslønn > grunnbeløpVerktøy.hentMaksÅrligDagpengegrunnlag()) {
+               beregningsMetode = BeregningsMetode.MAKS_ÅRLIG_DAGPENGERGRUNNLAG;
            }
         } else {
-            beregningsMetode = "GJENNOMSNITTET_AV_TRE_ÅR";
+            beregningsMetode = BeregningsMetode.GJENNOMSNITTET_AV_TRE_ÅR;
         }
 
         return beregningsMetode;
     }
 
-    public void leggTilÅrslønn(Årslønn årslønn) {
-        this.årslønner.add(årslønn);
-        this.sorterÅrslønnerBasertPåNyesteÅrslønn();
+    public void leggTilÅrslønn(List<Årslønn> årslønner, Årslønn årslønn) {
+        if (årslønner == null) {
+            throw new IllegalArgumentException("Årslønnsliste kan ikke være null");
+        }
+
+        årslønner.add(årslønn);
+        sorterÅrslønnerBasertPåNyesteÅrslønn(årslønner);
     }
 
     /**
@@ -101,8 +135,8 @@ public class DagpengerKalkulator {
      * @param indeks posisjonen til årslønnen.
      * @return årslønnen ved gitt indeks.
      */
-    public Årslønn hentÅrslønnVedIndeks(int indeks) {
-        return this.årslønner.get(indeks);
+    public Årslønn hentÅrslønnVedIndeks(List<Årslønn> årslønner, int indeks) {
+        return årslønner.get(indeks);
     }
 
     /**
@@ -110,18 +144,24 @@ public class DagpengerKalkulator {
      * @param antallÅrÅSummere antall år med årslønner vi vil summere.
      * @return summen av årslønner.
      */
-    public double summerNyligeÅrslønner(int antallÅrÅSummere) {
+    public double summerNyligeÅrslønner(int antallÅrÅSummere, List<Årslønn> årslønner) {
         double sumAvNyligeÅrslønner = 0;
+        sorterÅrslønnerBasertPåNyesteÅrslønn(årslønner);
+        
+        if (antallÅrÅSummere <= 0) {
+            throw new IllegalArgumentException("Antall år å summere må være større enn 0");
+        }
 
-        if (antallÅrÅSummere <= this.årslønner.size()) {
-            List<Årslønn> subÅrslønnListe = new ArrayList<>(this.årslønner.subList(0, antallÅrÅSummere));
+        if (antallÅrÅSummere <= årslønner.size()) {
+            List<Årslønn> subÅrslønnListe = årslønner.subList(0, antallÅrÅSummere);
 
             for (Årslønn årslønn : subÅrslønnListe) {
                 sumAvNyligeÅrslønner += årslønn.hentÅrslønn();
             }
+            return sumAvNyligeÅrslønner;
+        }else {
+            throw new IllegalArgumentException("Antall år å summere kan ikke være større enn antall årslønner i registeret");
         }
-
-        return sumAvNyligeÅrslønner;
     }
 
     /**
@@ -129,8 +169,14 @@ public class DagpengerKalkulator {
      * Først blir årslønnene i registeret sortert ut at den eldstre årslønnen skal først i registeret,
      * deretter blir registeret reversert.
      */
-    public void sorterÅrslønnerBasertPåNyesteÅrslønn() {
-        this.årslønner.sort(Comparator.comparingInt(Årslønn::hentÅretForLønn));
-        Collections.reverse(this.årslønner);
+    public void sorterÅrslønnerBasertPåNyesteÅrslønn(List<Årslønn> årslønner) {
+        if (årslønner == null) {
+            throw new IllegalArgumentException("Årslønnsliste kan ikke være null");
+        }
+        //Mutable List, metode som kan sortere listen i seg selv.
+        årslønner.sort(Comparator.comparingInt(Årslønn::hentÅretForLønn).reversed());
+        //Reversed lar deg bare direkte sortere listen i omvendt rekjefulge
+       //Collections.reverse(this.årslønner);
     }
+
 }
