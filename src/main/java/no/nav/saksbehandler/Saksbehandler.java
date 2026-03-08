@@ -121,7 +121,10 @@ public class Saksbehandler {
     }
 
     public void leggTilSak(Sak sak) {
-        verifiserAtSakKanBehandles(sak);
+        if(!verifiserAtSakKanBehandles(sak)) {
+            throw new IllegalStateException(
+                    "Saken kan ikke legges til. Sjekk at den er ubehandlet og at vedtaket matcher saksbehandlerens spesialisering.");
+        }
         if (!this.saker.contains(sak)) {
             this.saker.add(sak);
         }

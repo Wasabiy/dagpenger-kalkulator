@@ -41,6 +41,9 @@ public class Arbeidsflyt {
     }
 
     public void behandleSaker() {
+        Collections.shuffle(saksbehandlere); // Shuffle saksbehandlere for å unngå at samme saksbehandler alltid får sakene i sin kategori!
+
+
         //Collections.shuffle(saksbehandlere); 
             // Shake I' Shake I'!! Dette er for å unngå at en saksbehandler alltid får alle sakene i sin kategori, og for å spre sakene mer jevnt mellom saksbehandlerne.
             // Eller bør jeg bare anta at det finnes kun tre saksbehandlere og at de alltid får sakene i sin kategori....?
@@ -58,7 +61,7 @@ public class Arbeidsflyt {
             if (vedtak == Vedtak.IKKE_SATT) {
                 continue;
             }
-            Collections.shuffle(saksbehandlere); // Shuffle saksbehandlere for å unngå at samme saksbehandler alltid får sakene i sin kategori!
+         
             saksbehandlere.stream()
                 .filter(saksbehandler -> saksbehandler.getVedtakSpesialisering() == vedtak)
                 .findFirst()

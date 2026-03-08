@@ -26,7 +26,7 @@ public class Sak {
     public void setÅrslønner(List<Årslønn> årslønner) {
         this.årslønner = årslønner;
     }
-    //Jeg vet at mutable lister ikke er ideelt, men for dagpengerkalkulatoren sin metode for å fortsatt eksistere ønsket jeg ikke å fjerne den. ideelt hadde jeg lagt en sorteringsmetode i Sak-klassen og gjort årslønner til en immutable liste, men har endret nok på tester allerede tenker jeg bør la det være for nå
+    //Jeg vet at mutable lister ikke er ideelt, men for dagpengerkalkulatoren sin metode for å fortsatt eksistere ønsket jeg ikke å fjerne den. ideelt hadde jeg lagt en sorteringsmetode i Sak-klassen og gjort årslønner til en immutable liste, men har endret nok på tester allerede tenker jeg bør la det være for nå 
     public List<Årslønn> getÅrslønner() {
         return årslønner;
     }

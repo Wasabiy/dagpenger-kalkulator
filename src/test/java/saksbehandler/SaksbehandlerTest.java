@@ -41,7 +41,7 @@ public class SaksbehandlerTest {
         Saksbehandler saksbehandler = new Saksbehandler("sb-2", Vedtak.AVSLAG);
         Sak sak = opprettSak(3L, Vedtak.INNVILGET);
 
-        assertThrows(IllegalArgumentException.class, () -> saksbehandler.leggTilSak(sak));
+        assertThrows(IllegalStateException.class, () -> saksbehandler.leggTilSak(sak));
     }
 
     @Test
